@@ -29,23 +29,28 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
   function googleAssistantHandler(agent) {
     let conv = agent.conv(); // Get Actions on Google library conv instance
-    conv.ask("Let's read some tweets!");
-    twitter.get('statuses/home_timeline', { count: 10 }, (err, data, response) => {
+    conv.ask("Here are some new tweets from your Home timeline!");
+    return new Promise((resolve, reject) => {
+      twitter.get('statuses/home_timeline', { count: 10, tweet_mode : 'extended' }, (err, data, response) => {
         if(err){
             responseToUser="Something went wrong, I couldn't fetch tweets.";
             conv.ask(responseToUser);
+            reject(err);
         }
         else{
-            console.log(data);
             data.forEach(tweet => {
-                responseToUser = String("Tweet from " + tweet.user.name + ': ' + tweet.text);
-                conv.ask(responseToUser);
+                let formattedTweet = String('Tweet from ' + tweet.user.name + ': ' + tweet.full_text);
+                formattedTweet = formattedTweet.replace(/(?:https?|ftp):\/\/[\n\S]+/g, '');
+                formattedTweet = formattedTweet.replace('RT', 'retweeted');
+                formattedTweet = formattedTweet.replace('@', '');
+                responseToUser += formattedTweet
             });
-            responseToUser = "That's it!";
+            conv.ask(responseToUser);
         }
+        agent.add(conv);
+        resolve(agent);
       });
-    conv.ask("Exit!");
-    agent.add(conv); // Add Actions on Google library responses to your agent's response
+    });
   }
 
   let intentMap = new Map();
